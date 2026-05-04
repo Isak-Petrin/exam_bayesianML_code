@@ -11,9 +11,9 @@ from scipy.stats import multivariate_normal
 
 snb.set_theme(font_scale=1.25)
 
-class MCMC(object):
+class metropolis(object):
     
-    def __init__(self, log_target, num_params, tau, num_iter, theta_init=None, seed=0):
+    def __init__(self, log_target, num_params, tau, num_iter, theta_init=None, seed=0, dis_prop = 0.5):
         
         # store data and hyperparameters
         self.log_target = log_target
@@ -22,9 +22,13 @@ class MCMC(object):
         self.num_iter = num_iter
         self.theta_init = theta_init
         self.seed = seed
+        self.dis_prop = dis_prop
         
         self.thetas = self.metropolis(self.log_target, self.num_params, self.tau, self.num_iter, self.theta_init, self.seed)
+        self.post_warmup_thetas = self.thetas[int(self.num_iter*self.dis_prop):]
 
+        #Statistics
+        self.mean_thetas, self.var_thetas = jnp.mean(self.post_warmup_thetas), jnp.var(self.post_warmup_thetas)
         
     def metropolis(self, log_target, num_params, tau, num_iter, theta_init=None, seed=0):    
         """ Runs a Metropolis-Hastings sampler 
@@ -100,14 +104,30 @@ class MCMC(object):
         # check dimensions and return
         assert thetas.shape == (num_iter+1, num_params), f'The shape of thetas was expected to be ({num_iter+1}, {num_params}), but the actual shape was {thetas.shape}. Please check your code.'
         return thetas
-
-
+    
+    
+    def plot_trace(self):
+        fig, axes = plt.subplots(1, self.num_params, figsize=(20, 4))
+        if self.num_params == 1:
+            axes.plot(self.post_warmup_thetas)
+            axes.set_xlabel('Iteration')
+            axes.set_ylabel('Parameter $\\theta$')
+            axes.set_title('Trace of parameter $\\theta$', fontweight='bold')
+        else:
+            for i,theta in enumerate(self.post_warmup_thetas.T):
+                axes[i].plot(theta)
+                axes[i].set_xlabel('Iteration')
+                axes[i].set_ylabel('Parameter $\\theta$')
+                axes[i].set_title('Trace of parameter $\\theta$', fontweight='bold')
+            
+    def credability_interval(self, p):
+        return [jnp.quantile(theta, q = p, axis = 0) for theta in self.post_warmup_thetas.T]
 # sanity check: estimate the mean and variance of a N(x|1,3) Gaussian distribution
-p_target = lambda x: log_npdf(x, 1., 3.)
+#p_target = lambda x: log_npdf(x, 1., 3.)
 
 # run sampler
-thetas = metropolis(p_target, 1, 2., 20000, theta_init=jnp.array([0]))
+#thetas = metropolis(p_target, 1, 2., 20000, theta_init=jnp.array([0]))
 
 # estimate the mean and variance of p_target and relative errors
-mean_thetas, var_thetas = jnp.mean(thetas), jnp.var(thetas)
-rel_err_mean, rel_err_var = (mean_thetas - 1.)/1., (var_thetas - 3.)/3.
+
+
