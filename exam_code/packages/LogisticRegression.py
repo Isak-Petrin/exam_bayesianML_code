@@ -31,7 +31,7 @@ log_npdf = lambda x, m, v: -(x-m)**2/(2*v) - 0.5*jnp.log(2*jnp.pi*v)
 
 class LogisticRegression(object):
 
-    def __init__(self, X, y, feature_transformation=lambda x: x, alpha=1.):
+    def __init__(self, X, y, feature_transformation=lambda x: x, alpha=1., standardized = True):
         
         # store data and hyperparameters
         self.X0 = X
@@ -41,10 +41,11 @@ class LogisticRegression(object):
 
         # apply feature transformation and standardize
         self.X = feature_transformation(self.X0)
-        self.X_mean = jnp.mean(self.X, 0)
-        self.X_std = jnp.std(self.X, 0)
-        self.X_std.at[self.X_std == 0].set(1)
-        self.X = self.preprocess(X)
+        if standardized:
+            self.X_mean = jnp.mean(self.X, 0)
+            self.X_std = jnp.std(self.X, 0)
+            self.X_std.at[self.X_std == 0].set(1)
+            self.X = self.preprocess(X)
 
         # store number of training data and number of features
         self.N, self.D = self.X.shape
